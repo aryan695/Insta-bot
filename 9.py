@@ -1,224 +1,210 @@
-# async era starts here 
-import datetime
-import time
+# 9_fast_xnsera.py  (fasted modified version)
+# Password: xnsera
+
 import sys
+import os
 import asyncio
 import logging
 import random
-import os
-from pyfiglet import figlet_format
-from cfonts import render
 from itertools import count
-from urllib.parse import unquote
-from playwright.async_api import async_playwright
+from cfonts import render
+from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
-# ?? Terminal colors
+# -------- CONFIG (tune these) --------
+PASSWORD = "xnsera"
+HEADLESS = True           # True = fastest; False = visible browser for debug
+DEFAULT_TASKS = 20        # concurrency (reduce if you get rate limited)
+RENAME_DELAY = 0.01       # seconds between renames per loop (0 or very small for fastest)
+STATS_INTERVAL = 0.5      # how often stats print
+GEAR_WAIT = 8000          # ms wait for info button
+
+# -------- UI/colors --------
 COLORS = {
-    'red': '\033[1;31m',
-    'green': '\033[1;32m',
-    'yellow': '\033[1;33m',
-    'cyan': '\033[36m',
-    'blue': '\033[1;34m',
-    'reset': '\033[0m',
-    'gold': '\x1b[38;5;220m',
-    'bold': '\033[1m',
+    'green': '\033[1;32m', 'red': '\033[1;31m', 'cyan': '\033[36m', 'reset': '\033[0m'
 }
-
-background_colors = {
-    'black'     : '\033[40m',
-    'red'       : '\033[41m',
-    'green'     : '\033[42m',
-    'yellow'    : '\033[43m',
-    'blue'      : '\033[44m',
-    'magenta'   : '\033[45m',
-    'cyan'      : '\033[46m',
-    'white'     : '\033[47m'
-}
-
-background_256 = {
-    'bright_magenta' : '\033[48;5;201m',
-    'bright_blue'    : '\033[48;5;117m',
-    'bright_green'   : '\033[48;5;82m',
-    'bright_yellow'  : '\033[48;5;226m',
-    'bright_cyan'    : '\033[48;5;87m',
-    'bright_red'     : '\033[08;5;196m',
-    'gray'           : '\033[48;5;244m',
-    'orange'         : '\033[48;5;208m',
-    'purple'         : '\033[48;5;93m'
-}
-
-def logo():
-    print(render("• GAME OVER •", colors=["red", "white"]))
 
 def banner():
     os.system("cls" if os.name == "nt" else "clear")
-    print(render("• ANANYA •", colors=["yellow", "blue"]))
-    print(COLORS['blue'] + "insta group nc " + COLORS['reset'])
-    print(COLORS['yellow'] + "python nc by xnsgod." + COLORS['reset'])
-    print(COLORS['red'] + "Ver: 01" + COLORS['reset'])
-    print(COLORS['green']+COLORS['bold']+ "add info\033[0m  "+background_256["bright_red"]+"the RDP killer" + COLORS['reset'])  
-    print(background_256['bright_cyan'] + "ASYNC version" + COLORS['reset'])
+    print(render("• ANANYA FAST •", colors=["yellow","blue"]))
+    print("Ultra-fast Instagram Group Renamer (use responsibly)")
 
-# 2. PASSWORD PROTECTION
-password = input("Enter script password: ").strip()
-if password != "xnsgod":
-    print(f"Incorrect password! contact xnsera.")
-    sys.exit(1)
-
-# Logging
+# -------- Logging ----------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-# Emoji bases
+# -------- Input & Auth ----------
+banner()
+pw = input("Enter script password: ").strip()
+if pw != PASSWORD:
+    print("❌ Wrong password. Exiting.")
+    sys.exit(1)
+
+session_id = input("Session ID (cookie): ").strip()
+if not session_id:
+    print("Session ID required. Exiting.")
+    sys.exit(1)
+
+dm_url = input("Group chat URL: ").strip()
+if not dm_url:
+    print("DM URL required. Exiting.")
+    sys.exit(1)
+
+user_prefix = input("Prefix/name (default: XNS): ").strip() or "XNS"
 try:
-    with open("ufo_bases.txt", "r", encoding="utf-8") as f:
-        ufo_bases = [line.strip() for line in f if line.strip()]
+    task_count = int(input(f"Number of tasks [{DEFAULT_TASKS}]: ").strip() or DEFAULT_TASKS)
+except:
+    task_count = DEFAULT_TASKS
+
+# -------- Name generator resources ----------
+try:
+    with open("ufo_bases.txt","r",encoding="utf-8") as f:
+        ufo_bases = [ln.strip() for ln in f if ln.strip()]
 except Exception:
-    ufo_bases = [
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🪐⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔱⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🩵⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔥⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌪️⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🐜⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⚓⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌙⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⭕⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌀⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🪐⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔱⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🩵⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⚓⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌙⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⭕⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌀⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🪐⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔱⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🩵⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔥⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌪️⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🐜⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⚓⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌙⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⭕⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌀⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🪐⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔱⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🩵⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🔥⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌪️⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🐜⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰⚓⋱",
-" 〈ʜ∆ᴄʟᴇ〉 ⭞ ᴛᴍᴋᴄ ￫⋰🌙⋱"
-]
-emoji_suffixes = ["👻", "🪻", "❄️", "🦚", "🐥", "💖", "🦋"]
-name_counter = count(1)
-used_names = set()
-success_count = 0
-fail_count = 0
+    ufo_bases = ["〈ʜ∆ᴄʟᴇ〉","⚡","🔥","👑","🚀","👽","🦋","✨"]
+
+emoji_suffixes = ["❤","💚","💙","💜","🔥","✨","💀"]
+counter = count(1)
+used = set()
+
+def gen_name():
+    while True:
+        base = random.choice(ufo_bases)
+        emo = random.choice(emoji_suffixes)
+        n = f"{user_prefix}{base}{emo}{next(counter)}"
+        if n not in used:
+            used.add(n)
+            return n
+
+# -------- Shared counters ----------
+success = 0
+failed = 0
 lock = asyncio.Lock()
 
-# Inputs
-banner()
-session_id = input("Session ID: ").strip() or unquote('3107219309%3AbsSojakNFzfPm7%3A4%3AAYe8RLzBGQHVyoEUGtYnfcz0-AKdsQ5quNdSs1FCMg')
-dm_url = input("Group chat URL: ").strip() or 'https://www.instagram.com/direct/t/23868009596216607/'
-user_prefix = input("Enter your target's name or  (e.g., xns, glactus): ").strip()
+# -------- Helper: fast find gear (minimal overhead) --------
+async def click_info_button(page):
+    """
+    Fast attempt to click the thread info/details button.
+    Prioritizes the selector we observed: div[role=button] with svg[aria-label*='Thread details']
+    Returns True if clicked, False otherwise.
+    """
+    # primary selector (fast)
+    try:
+        gear = page.locator('div[role="button"]:has(svg[aria-label*="Thread details"])')
+        await gear.wait_for(timeout=GEAR_WAIT)
+        await gear.click()
+        return True
+    except Exception:
+        # lightweight fallback: try a few common svg aria-label variants quickly
+        fallbacks = [
+            'div[role="button"]:has(svg[aria-label*="detail"])',
+            'div[role="button"]:has(svg[aria-label*="Details"])',
+            'button:has(svg[aria-label*="Details"])',
+            'svg[aria-label*="details"]',
+            'svg[aria-label*="Conversation"]'
+        ]
+        for sel in fallbacks:
+            try:
+                loc = page.locator(sel)
+                if await loc.count():
+                    await loc.first.click()
+                    return True
+            except Exception:
+                continue
+    return False
 
-try:
-    task_count = int(input("Number of async tasks: ").strip())
-except:
-    task_count = 5
-
-def generate_name():
-    while True:
-        base = random.choice(ufo_bases).replace("kuro/espada", "").strip()
-        emoji = random.choice(emoji_suffixes)
-        suffix = next(name_counter)
-        name = f"{user_prefix} {base} {emoji}_{suffix}"
-        if name not in used_names:
-            used_names.add(name)
-            return name
-
-async def rename_loop(context):
-    global success_count, fail_count
+# -------- Core fast rename loop (caches locators) --------
+async def rename_loop(context, lid):
+    global success, failed
     page = await context.new_page()
     try:
-        await page.goto(dm_url, wait_until='domcontentloaded', timeout=600000)
-        gear = page.locator('svg[aria-label="Conversation information"]')
-        await gear.wait_for(timeout=160000)
-        await gear.click()
-        await asyncio.sleep(1)
+        await page.goto(dm_url, wait_until="domcontentloaded", timeout=60000)
+    except PWTimeout:
+        logging.error(f"[L{lid}] DM load timeout")
+        await page.close()
+        return
     except Exception as e:
-        logging.error(f"Page init failed: {e}")
+        logging.error(f"[L{lid}] DM nav error: {e}")
+        await page.close()
         return
 
-    change_btn = page.locator('div[aria-label="Change group name"][role="button"]')
-    group_input = page.locator('input[aria-label="Group name"][name="change-group-name"]')
-    save_btn = page.locator('div[role="button"]:has-text("Save")')
+    # click info/details (fast)
+    ok = await click_info_button(page)
+    if not ok:
+        logging.error(f"[L{lid}] Info button not found; aborting loop")
+        await page.close()
+        return
+
+    # cache locators (do not recreate each loop)
+    change_btn = page.locator('div[aria-label="Change group name"][role="button"], button:has-text("Change group name")')
+    group_input = page.locator('input[aria-label="Group name"], input[name="change-group-name"], textarea, div[role="textbox"]')
+    save_btn = page.locator('button:has-text("Save"), div[role="button"]:has-text("Save"), button:has-text("Done")')
+
+    # quick stabilization
+    await asyncio.sleep(0.15)
 
     while True:
         try:
-            name = generate_name()
+            nm = gen_name()
+            # click change
             await change_btn.click()
+            # fill name fast
             await group_input.click(click_count=3)
-            await group_input.fill(name)
-
-            disabled = await save_btn.get_attribute("aria-disabled")
-            if disabled == "true":
+            await group_input.fill(nm)
+            # check disabled
+            try:
+                dis = await save_btn.get_attribute("aria-disabled")
+            except Exception:
+                dis = None
+            if dis == "true":
                 async with lock:
-                    fail_count += 1
+                    failed += 1
+                # tiny backoff
+                await asyncio.sleep(max(0.005, RENAME_DELAY))
                 continue
-
             await save_btn.click()
             async with lock:
-                success_count += 1
-
-            await asyncio.sleep(0.05)
-
+                success += 1
+            # minimal delay
+            if RENAME_DELAY:
+                await asyncio.sleep(RENAME_DELAY)
         except Exception:
             async with lock:
-                fail_count += 1
-            await asyncio.sleep(0.1)
+                failed += 1
+            # tiny backoff on errors
+            await asyncio.sleep(0.01)
 
-async def live_stats():
+# -------- lightweight stats --------
+async def stats_task():
     while True:
         async with lock:
-            print(f"\033[1;34mDM URL: {dm_url}\033[0m")
-            print(f"\033[1;35mTasks: {task_count}\033[0m")
-            print(f"\033[1;36mUsed Names: {len(used_names)}\033[0m")
-            print(f"\033[1;37mTotal Attempts: {success_count + fail_count}\033[0m")
-            print(f"\033[42m? Success: {success_count}\033[0m  \033[41m? Failed: {fail_count}\033[0m", end="\r")
-        await asyncio.sleep(0.5)
-        os.system("cls" if os.name == "nt" else "clear")
+            tot = success + failed
+            print(f"\r{COLORS['cyan']}Attempts:{tot} {COLORS['green']}✔{success} {COLORS['red']}✘{failed}{COLORS['reset']}", end="", flush=True)
+        await asyncio.sleep(STATS_INTERVAL)
 
+# -------- Main ----------
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'])
-
-        context = await browser.new_context(
-            locale="en-US",
-            extra_http_headers={"Referer": "https://www.instagram.com/"},
-            viewport=None
-        )
+        browser = await p.chromium.launch(headless=HEADLESS, args=["--no-sandbox","--disable-gpu"])
+        context = await browser.new_context(locale="en-US")
+        # add session cookie
         await context.add_cookies([{
-            "name": "sessionid",
-            "value": session_id,
-            "domain": ".instagram.com",
-            "path": "/",
-            "httpOnly": True,
-            "secure": True,
-            "sameSite": "None"
+            "name":"sessionid","value":session_id,"domain":".instagram.com","path":"/",
+            "httpOnly": True, "secure": True, "sameSite": "None"
         }])
 
-        tasks = [asyncio.create_task(rename_loop(context)) for _ in range(task_count)]
-        tasks.append(asyncio.create_task(live_stats()))
+        # spawn workers
+        workers = [asyncio.create_task(rename_loop(context, i+1)) for i in range(task_count)]
+        workers.append(asyncio.create_task(stats_task()))
 
         try:
-            await asyncio.gather(*tasks)
+            await asyncio.gather(*workers)
         except KeyboardInterrupt:
-            print("\n?? Done.")
-            logo()
+            print("\nInterrupted by user.")
         finally:
+            await context.close()
             await browser.close()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print("Fatal:", e)
